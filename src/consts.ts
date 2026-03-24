@@ -133,6 +133,39 @@ export const RESOLUTION_OPTIONS: Record<string, Record<string, { width: number; 
 // 旧版比例映射（兼容）
 export const ASPECT_RATIOS = RESOLUTION_OPTIONS["2k"];
 
+// 视频模型映射 - 国际站 (Dreamina)
+export const VIDEO_MODEL_MAP: Record<string, string> = {
+  "seedance-2.0-fast": "seedance_v20_fast",
+  "seedance-2.0":      "seedance_v20",
+  "seedance-1.5-pro":  "seedance_v15_pro",
+  "seedance-1.5":      "seedance_v15",
+  // 兼容写法
+  "seedance2-fast":    "seedance_v20_fast",
+  "seedance2":         "seedance_v20",
+};
+
+// 视频模型映射 - 国内站 (即梦)
+export const VIDEO_MODEL_MAP_CN: Record<string, string> = {
+  "seedance-2.0-fast": "seedance_v20_fast",
+  "seedance-2.0":      "seedance_v20",
+  "seedance-1.5-pro":  "seedance_v15_pro",
+  "seedance-1.5":      "seedance_v15",
+};
+
+export const DEFAULT_VIDEO_MODEL = "seedance-2.0-fast";
+
+// 视频比例映射 (aspect_ratio -> ratio code)
+export const VIDEO_ASPECT_RATIO_MAP: Record<string, number> = {
+  "16:9": 3,
+  "9:16": 5,
+  "1:1":  1,
+  "4:3":  4,
+  "3:4":  2,
+};
+
+// 视频时长选项 (秒)
+export const VIDEO_DURATION_OPTIONS = [4, 8] as const;
+
 // 区域前缀映射
 export const REGION_PREFIXES: Record<string, string> = {
   'us-': 'US',

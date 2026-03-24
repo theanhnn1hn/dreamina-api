@@ -6,8 +6,9 @@
  */
 
 import { submitImageTask, submitCompositionTask, getTaskStatus, getHistoryBySubmitIds } from './images';
+import { submitVideoTask, getVideoTaskStatus } from './videos';
 import { tokenSplit, sample, unixTimestamp } from './utils';
-import { IMAGE_MODEL_MAP, DEFAULT_IMAGE_MODEL } from './consts';
+import { IMAGE_MODEL_MAP, VIDEO_MODEL_MAP, DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL } from './consts';
 import { uiHtml } from './ui';
 
 export interface Env {
@@ -265,15 +266,23 @@ export default {
 
       // 获取模型列表
       if (path === '/v1/models' && method === 'GET') {
-        const models = Object.keys(IMAGE_MODEL_MAP).map(id => ({
+        const imageModels = Object.keys(IMAGE_MODEL_MAP).map(id => ({
           id,
           object: 'model',
           created: 1700000000,
           owned_by: 'dreamina',
+          type: 'image',
+        }));
+        const videoModels = Object.keys(VIDEO_MODEL_MAP).map(id => ({
+          id,
+          object: 'model',
+          created: 1700000000,
+          owned_by: 'dreamina',
+          type: 'video',
         }));
         return jsonResponse({
           object: 'list',
-          data: models,
+          data: [...imageModels, ...videoModels],
         });
       }
 
@@ -392,6 +401,80 @@ export default {
           created: unixTimestamp(),
         });
       }
+
+      // ─── VIDEO ENDPOINTS ────────────────────────────────────────
+
+      // 查询视频任务状态
+      const videoTaskMatch = path.match(/^\/v1\/videos\/tasks\/([^\/]+)$/);
+      if (videoTaskMatch && method === 'GET') {
+        const taskId = videoTaskMatch[1];
+
+        const authorization = request.headers.get('Authorization');
+        const tokens = tokenSplit(authorization);
+        if (tokens.length === 0 && !env.DEFAULT_TOKEN) {
+          return errorResponse('Authorization header 是必需的', 401);
+        }
+        const token = sample(tokens) || env.DEFAULT_TOKEN!;
+
+        const status = await getVideoTaskStatus(taskId, token);
+        return jsonResponse(status);
+      }
+
+      // 提交视频生成任务 (文生视频 / 图生视频)
+      if (path === '/v1/videos/generations' && method === 'POST') {
+        const body = await request.json() as any;
+
+        if (!body.prompt || typeof body.prompt !== 'string') {
+          return errorResponse('prompt 参数是必填的');
+        }
+
+        const authorization = request.headers.get('Authorization');
+        const tokens = tokenSplit(authorization);
+        if (tokens.length === 0 && !env.DEFAULT_TOKEN) {
+          return errorResponse('Authorization header 是必需的', 401);
+        }
+        const token = sample(tokens) || env.DEFAULT_TOKEN!;
+
+        const {
+          model = DEFAULT_VIDEO_MODEL,
+          prompt,
+          negative_prompt: negativePrompt,
+          ratio = '16:9',
+          duration = 8,
+          reference_image: referenceImage,
+        } = body;
+
+        // 校验时长
+        if (![4, 8].includes(duration)) {
+          return errorResponse('duration 只支持 4 或 8 秒');
+        }
+
+        // 校验比例
+        const validRatios = ['16:9', '9:16', '1:1', '4:3', '3:4'];
+        if (!validRatios.includes(ratio)) {
+          return errorResponse(`ratio 只支持: ${validRatios.join(', ')}`);
+        }
+
+        const { taskId, submitId } = await submitVideoTask(model, prompt, {
+          ratio,
+          duration,
+          negativePrompt,
+          referenceImageUri: referenceImage,
+        }, token);
+
+        return jsonResponse({
+          task_id: taskId,
+          submit_id: submitId,
+          status: 'pending',
+          model,
+          duration,
+          ratio,
+          message: '视频任务已提交，请通过 GET /v1/videos/tasks/{task_id} 查询状态',
+          created: unixTimestamp(),
+        });
+      }
+
+      // ─── IMAGE HISTORY (旧接口兼容) ────────────────────────────
 
       // 获取历史记录（兼容旧接口）
       if (path === '/v1/images/history' && method === 'POST') {
